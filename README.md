@@ -1,0 +1,1 @@
+## Pataka automatic scorong

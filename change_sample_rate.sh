@@ -1,0 +1,1 @@
+find . -name "*.wav" -print | xargs -I {} sox {} -r16k -c1 {}.16k.wav
