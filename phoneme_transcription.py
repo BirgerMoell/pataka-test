@@ -26,3 +26,4 @@ with torch.no_grad():
     predicted_ids = torch.argmax(logits, dim=-1)
     transcription = processor.batch_decode(predicted_ids, output_char_offsets=True)
     print(transcription)
+    offsets = transcription['char_offsets']
