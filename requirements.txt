@@ -3,3 +3,4 @@ numpy
 transformers
 soundfile
 phonemizer
+librosa
