@@ -5,6 +5,8 @@ import numpy as np
 import soundfile as sf
 import io
 import librosa
+import matplotlib.pyplot as plt
+
 
 st.title("Syllables per Second Calculator")
 st.write("Upload an audio file to calculate the number of 'p', 't', and 'k' syllables per second.")
@@ -58,6 +60,25 @@ def get_syllables_per_second(audio_file):
     print("the syllable count is: ", syllable_count)
     #print("the syllabels per second is: ", syllable_count / audio_duration)
     syllables_per_second = syllable_count / syllable_duration if syllable_duration > 0 else 0
+
+    times = []
+    syllables_per_second_time = []
+    for i in range(len(syllable_offsets) - 1):
+        start = syllable_offsets[i]['start_offset'] * 0.02
+        end = syllable_offsets[i + 1]['end_offset'] * 0.02
+        duration = end - start
+        rate = 1 / duration if duration > 0 else 0
+        times.append(start)
+        syllables_per_second_time.append(rate)
+
+    plt.plot(times, syllables_per_second_time)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Syllables per second')
+    # plt.show()
+    # save the figure
+    plt.savefig('syllables_per_second.png')
+    # show the image using streamlit
+    st.image('syllables_per_second.png')
 
     return syllables_per_second
 
