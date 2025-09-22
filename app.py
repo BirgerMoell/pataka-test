@@ -54,7 +54,7 @@ def load_and_preprocess_audio(audio_bytes):
 
     return audio_input, target_sample_rate, processor
 
-def create_mel_spectrogram(audio_input, sample_rate):
+def create_mel_spectrogram(audio_input, sample_rate, hop_length):
     """Create ultra high-quality mel spectrogram from audio data."""
     # Use speech-optimized frequency range (0-8000 Hz for better detail in speech range)
     fmax = min(8000, sample_rate//2)
@@ -62,10 +62,10 @@ def create_mel_spectrogram(audio_input, sample_rate):
     mel_spec = librosa.feature.melspectrogram(
         y=audio_input,
         sr=sample_rate,
-        n_mels=512,  # Doubled for much finer frequency resolution
-        hop_length=256,  # Smaller hop for better time resolution
+        n_mels=128,  # Doubled for much finer frequency resolution
+        hop_length=hop_length,  # Smaller hop for better time resolution
         fmax=fmax,  # Focus on speech-relevant frequencies
-        n_fft=4096,  # Much larger FFT window for better frequency resolution
+        n_fft=512,  # Much larger FFT window for better frequency resolution
         window='hann',  # Explicit window function
         center=True,  # Center the window
         pad_mode='constant'  # Better padding
@@ -277,19 +277,17 @@ def create_syllables_per_second_plot(syllable_offsets, sample_rate):
     plt.savefig('syllables_per_second.png')
     plt.close()
 
-def create_mel_spectrogram_plot(mel_spec_db, sample_rate, syllable_offsets):
+def create_mel_spectrogram_plot(mel_spec_db, sample_rate, syllable_offsets, hop_length):
     """Create ultra high-quality mel spectrogram with highlighted syllables."""
     # Use speech-optimized frequency range for better detail
     fmax = min(8000, sample_rate//2)
     
-    # Define hop_length for mel spectrogram display (must match the one used in generation)
-    hop_length = 256  # This should match the hop_length used in create_mel_spectrogram
     
     # Wav2Vec2 uses 20ms frames (0.02 seconds) for char offsets
     # This is independent of the mel spectrogram hop_length
     frame_time = 0.02  # Wav2Vec2 frame rate
     
-    plt.figure(figsize=(16, 10), dpi=300)  # Much larger figure and ultra-high DPI
+    plt.figure(figsize=(16, 5), dpi=300)  # Much larger figure and ultra-high DPI
     librosa.display.specshow(
         mel_spec_db,
         sr=sample_rate,
@@ -297,7 +295,7 @@ def create_mel_spectrogram_plot(mel_spec_db, sample_rate, syllable_offsets):
         x_axis='time',
         y_axis='mel',
         fmax=fmax,  # Focus on speech-relevant frequencies
-        cmap='viridis'  # High contrast colormap for better readability
+        cmap='Greys'  # High contrast colormap for better readability
     )
     
     # Highlight p, t, k sounds using the correct time conversion
@@ -311,16 +309,16 @@ def create_mel_spectrogram_plot(mel_spec_db, sample_rate, syllable_offsets):
     # Get the current y-axis limits and extend them downward
     y_min, y_max = plt.ylim()
     # Calculate a fixed offset below the spectrogram for consistent label placement (reduced space)
-    label_y_position = y_min - (y_max - y_min) * 0.02  # Position labels closer to spectrogram
-    plt.ylim(y_min - (y_max - y_min) * 0.03, y_max)  # Minimal extension for labels (25% of previous)
-    
+    label_y_position = y_min - (y_max - y_min) * 0.025  # Position labels closer to spectrogram
+    plt.ylim(y_min - (y_max - y_min) * 0.04, y_max)  # Minimal extension for labels (25% of previous)
+
     for offset in syllable_offsets:
         start_time = offset['start_offset'] * frame_time
         end_time = offset['end_offset'] * frame_time
         mid_time = (start_time + end_time) / 2
         plt.text(mid_time, label_y_position, 
                 offset['char'].upper(),
-                horizontalalignment='center',
+                horizontalalignment='left',
                 verticalalignment='center',
                 color='white',
                 bbox=dict(facecolor='red', alpha=0.8),
@@ -333,7 +331,7 @@ def create_mel_spectrogram_plot(mel_spec_db, sample_rate, syllable_offsets):
     # Only show positive y-axis labels (above 0)
     ax.set_yticks([tick for tick in y_ticks if tick >= 0])
 
-    plt.colorbar(format='%+2.0f dB', shrink=0.8)
+    #plt.colorbar(format='%+2.0f dB', shrink=0.8)
     plt.title('Mel Spectrogram with Highlighted Syllables', fontsize=16, fontweight='bold')
     plt.tight_layout()
     plt.savefig('mel_spectrogram.png', dpi=600, bbox_inches='tight', facecolor='white', edgecolor='none')  # Ultra-high DPI for maximum crispness
@@ -665,11 +663,15 @@ def get_syllables_per_second(audio_bytes):
     Main analysis function that processes audio and returns syllables per second.
     Uses modular functions for better organization and maintainability.
     """
+
+    # Define hop_length for mel spectrogram display (must match the one used in generation)
+    hop_length = 128  # This should match the hop_length used in create_mel_spectrogram
+
     # Step 1: Load and preprocess audio
     audio_input, sample_rate, processor = load_and_preprocess_audio(audio_bytes)
 
     # Step 2: Create mel spectrogram
-    mel_spec_db = create_mel_spectrogram(audio_input, sample_rate)
+    mel_spec_db = create_mel_spectrogram(audio_input, sample_rate, hop_length)
     
     # Step 3: Transcribe audio and extract syllable offsets
     syllable_offsets, probabilities = transcribe_audio(audio_input, processor)
@@ -683,7 +685,7 @@ def get_syllables_per_second(audio_bytes):
     create_syllables_per_second_plot(syllable_offsets, sample_rate)
 
     # Step 6: Create mel spectrogram plot
-    create_mel_spectrogram_plot(mel_spec_db, sample_rate, syllable_offsets)
+    create_mel_spectrogram_plot(mel_spec_db, sample_rate, syllable_offsets, hop_length)
 
     # Step 7: Calculate detailed syllable statistics
     syllable_stats = calculate_syllable_stats(syllable_offsets, processor, probabilities, sample_rate)
